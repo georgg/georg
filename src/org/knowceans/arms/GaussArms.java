@@ -76,7 +76,9 @@ public class GaussArms extends ArmSampler {
         double[] xprev = {0.0};
 
         try {
-            BufferedWriter bw = new BufferedWriter(new FileWriter("arms.out01"));
+        	FileWriter file = new FileWriter("c:\\java_libs\\arms_out01.txt");
+        	
+            BufferedWriter bw = new BufferedWriter(file);
 
             GaussArms ga = new GaussArms();
 

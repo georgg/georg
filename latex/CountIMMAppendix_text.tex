@@ -1,0 +1,61 @@
+\section{Preliminary Definitions}
+We use the following definition of the gamma distribution:
+\[
+\textrm{Gamma}(Y \; | \; \alpha, \beta) = \frac{1}{\beta^{\alpha} \Gamma(\alpha)} Y^{\alpha-1}e^{-Y/\beta}
+\]
+For this parameterization, we then have that the mean $\mu = \alpha \beta$ and the variance $v = \alpha \beta^{2}$.  In terms of the mean and variance, we then have that $\alpha = \mu^{2}/v$ and $\beta = v/\mu$.
+
+We use the following definition of the Poisson distribution:
+\[
+\textrm{Poisson}(Y \; | \; \lambda) = \frac{\lambda^{Y}}{Y!} e^{-\lambda}
+\]
+
+\section{Model Definition} \label{sec:Model Definition}
+We assume that there are a potentially infinite number of core temporal behaviors with mixture weights $\bm{\pi}$ and mixture parameters $\bm{\Theta}$.  The mixture weights $\bm{\pi}$ are assumed to have a stick-breaking prior, i.e.,  $\bm{\pi} \sim \textrm{Stick}(\alpha)$, where $\alpha$ is a concentration parameter.  We assume that $\alpha$ has a Gamma prior with fixed hyperparameters  $a^{\alpha}_1$ and $a^{\alpha}_2$.
+
+For a given core temporal behavior $k$, the parameter vector $\bm{\theta}_{k}$ consists of:
+\[ \bm{\theta}_{k} = (\mu_{k},\delta_{kt_{0}},\ldots,\delta_{kt_{N_T}},\bm{\gamma}_{kt_{0}},\ldots,\bm{\gamma}_{kt_{N_T}},\bm{\epsilon}_{k})
+\]
+Here, $\mu_{k}$ corresponds to the starting rate for core profile $k$.  We assume that subsequent rates for the profile are generated via a geometric random walk, i.e., $\lambda^{\mu}_{k}(t) = \mu_{k} \prod_{1 < \tau \leq t} \delta_{k\tau}$.  We assume that $\mu_{k}$ has a Gamma prior, e.g., $\mu_{k} \sim \textrm{Gamma}(\widehat{c}^{2}_{0}/v_{0},v_{0}/\widehat{c}_{0})$ where $\widehat{c}$ is an empirical estimate of the mean of the initial counts, and $v_{0}$ is a fixed variance.  We assume that the $\delta_{k t}$ variables have Gamma priors with mean 1 and unknown variance $\eta_{\delta t}$.  We assume that the $\eta_{\delta t}$ themselves are Gamma distributed with mean equal to the empirical variances $\widehat{v}_{\delta t}$ and common fixed variance $w_{\delta}$, i.e., $\eta_{\delta t} \sim \textrm{Gamma}(\widehat{v}_{\delta t}^{2}/w_{\delta},w_{\delta}/\widehat{v}_{\delta t})$.  The variable $\gamma_{gkt}$ represents a random effect for genera $g$ at time $t$ belonging to core profile $k$.  We assume that $\gamma_{gkt}$ follows a Gamma distribution with mean 1 and unknown variance $\eta_{\gamma t} \sim \textrm{Gamma}(v^{2}_{\gamma t}/w_{\gamma},w_{\gamma}/v_{\gamma t})$.  Here, $v_{\gamma t}$ is a fixed mean hyperparameter for time $t$, and $w_{\gamma}$ is a fixed variance hyperparameter shared across time points.  The variable $\epsilon_{gktr}$ is Gamma distributed noise with mean 1 and variance $v_{\epsilon}$, i.e., $\epsilon_{gktr} \sim \textrm{Gamma}(1/v_{\epsilon},v_{\epsilon})$.  We assume a Gamma prior on $v_{\epsilon}$ with mean equal to the empirical replicate variance $\widehat{v}_R = \sum_{g} \sum_{t} \sum_{r} [1-\sum_{r'} Y_{gtr'}/(N_{R} Y_{gtr})]^{2}/(N_{R} N_{T} N_{G})$ and fixed common variance $w_R$, i.e., $v_{\epsilon} \sim \textrm{Gamma}(\widehat{v}_{R}^{2}/w_{R},w_{R}/\widehat{v}_R)$. 
+
+Finally, we specify the conditional distribution of the data.  Let $\rands{Y}_{gtr}$ represent the observed count of sequences for genera $g \in \{1,\ldots, N_G\}$ at time $t \in \{t_0,\ldots, t_{N_T}\}$ and replicate $r \in \{1,\ldots, N_R \}$.  Each genera $g$ is assigned to a core profile via a variable $\rands{z}_g \sim \textrm{Multinomial}(\bm{\pi})$.  
+
+We then assume the conditional distribution for an observation $\rands{Y}_{gtr}$ is Poisson with rate equal to the product of core profile effects, genera specific random effects and replicate noise.  The core profile effects are given by $\lambda^{\mu}_{k}(t) = \mu_{k} \prod_{1 < \tau \leq t} \delta_{k\tau}$, and the genera specific random effects are given by $\lambda^{\gamma}_{gk}(t) = \prod_{1 \leq \tau \leq t} \gamma_{gk\tau}$.  The conditional probability distribution for a data point is then:
+\[
+\condprob{\rands{Y}_{gtr}}{\rands{z}_g = k,\bm{\theta}_{k}} = \textrm{Poisson}(Y_{gtr} \; | \; \lambda^{\mu}_{k}(t) \lambda^{\gamma}_{gk}(t) \epsilon_{gktr}) 
+\]
+
+\section{Model Inference} \label{sec:Model Inference}
+We use Gibbs sampling with Adaptive rejection Metropolis sampling (ARMS) steps for certain variables.  The key Gibbs sampling step for Dirichlet Process mixture models involves assigning data points to mixture components.  We sample the assignment $\rands{z}_{g}$ for genera $g$ conditioned on all the other variables including assignments of the other genera.  In this step there are two cases: a genera $g$ is assigned to an existing component $k$, or it is assigned to a new component.  The update equations are then:
+\begin{equation} \label{eqn:assign existing}
+\condprob{\rands{z}_g = k}{\randv{z}_{-g},\alpha,\bm{\Theta},
+\randv{Y}} \propto \frac{n_{k}^{-g}}{N_G-1+\alpha}
+\condprob{\randv{Y}_g}{\bm{\theta}_{k}} \; \; \; \; \textrm{for} \;
+n_{k}^{-g} > 0
+\end{equation}
+\begin{equation}
+\label{eqn:assign new} \condprob{\rands{z}_g \neq \rands{z}_l,
+\forall \: l \neq g}{\randv{z}_{-g},\alpha,\bm{\Theta}, \randv{Y}}
+\propto \frac{\alpha}{N_{G}-1+\alpha} \condprob{\randv{Y}_g}{\bm{\theta}_{*}}
+\end{equation}
+Here, $n_{k}^{-g}$ is the number of genera assigned to profile $k$ excluding genera $g$, and $\randv{z}_{-g}$ is the assignments of all genera excluding genera $g$.  The variable $\bm{\theta}_{*}$ represents the parameters for a new component.  The data likelihood for $\randv{Y}_g$ is simply:
+\[
+\condprob{\randv{Y}_g}{\bm{\theta}_{k}} = \prod_{\tau=t_0}^{t_{N_T}} \prod_{r=1}^{N_R} \textrm{Poisson}(Y_{gtr} \; | \; \lambda^{\mu}_{k}(t) \lambda^{\gamma}_{gk}(t) \epsilon_{gktr})
+\]
+Because the data likelihood follows a Poisson distribution, and $\epsilon_{gktr}$, $\gamma_{gkt}$, $\mu_{k}$ and $\delta_{kt}$ have Gamma priors, sampling from the posterior distributions for these variables is straightforward due to conjugacy of the Poisson and Gamma distributions.  For convenience of notation, we denote the vector of all hyperparameters as $\bm{H}$.  The posterior distributions for $\epsilon_{gktr}$, $\gamma_{gkt}$, $\mu_{k}$ and $\delta_{kt}$ are given by:
+
+\begin{equation}
+\condprob{\epsilon_{gktr}}{Y_{gtr},\rands{z}_g = k,\bm{\Theta}^{-\epsilon_{gktr}},\bm{H}} \propto \textrm{Gamma}(Y_{gtr} + 1/v_{\epsilon},[\lambda^{\mu}_{k}(t) \lambda^{\gamma}_{gk}(t) + 1/v_{\epsilon}]^{-1})
+\end{equation}
+
+\begin{equation}
+\condprob{\gamma_{gkt}}{\randv{Y}_{gt},\rands{z}_g = k,\bm{\Theta}^{-\gamma_{gkt}},\bm{H}} \propto \textrm{Gamma}(\sum_{r=1}^{N_R} Y_{gtr} + 1/v_{\gamma t},[\lambda^{\mu}_{k}(t) \lambda^{\gamma}_{gk}(t-1) \sum_{r=1}^{N_R} \epsilon_{gktr} + 1/v_{\gamma t}]^{-1})
+\end{equation}
+
+\begin{equation}
+\condprob{\mu_{k}}{\randv{Y},\randv{z},\bm{\Theta}^{-\mu_{k}},\bm{H}} \propto \textrm{Gamma}(\sum_{\{g \; : \; z_{g} = k \}} \sum_{r=1}^{N_R} Y_{gt_{0}r} + \widehat{c}^{2}_{0}/v_{0},[\sum_{\{g  \; : \; z_{g} = k \}} \sum_{r=1}^{N_R} \gamma_{gt_{0}} \epsilon_{gkt_{0}r} + \widehat{c}_{0}/v_{0}]^{-1})
+\end{equation}
+
+\begin{equation}
+\condprob{\delta_{kt}}{\randv{Y},\randv{z},\bm{\Theta}^{-\delta_{kt}},\bm{H}} \propto \textrm{Gamma}(\sum_{\{g \; : \; z_{g} = k \}} \sum_{r=1}^{N_R} Y_{gtr} + 1/v_{\delta t},[\lambda^{\mu}_{k}(t-1) \sum_{\{g  \; : \; z_{g} = k \}} \sum_{r=1}^{N_R} \lambda^{\gamma}_{gk}(t) \epsilon_{gktr} + 1/v_{\delta t}]^{-1})
+\end{equation}
